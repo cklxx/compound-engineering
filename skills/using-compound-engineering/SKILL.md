@@ -1,64 +1,89 @@
 ---
 name: using-compound-engineering
-description: "Bootstraps the compound engineering workflow on every session. Loads memory, discovers available skills, and establishes the experience-compounding loop."
+description: "Bootstraps compound-engineering on every session. Loads project memory, scans recent experience, and activates the plan→record→remember→review loop."
 ---
 
 # Using Compound Engineering
 
-You have the **compound-engineering** skills installed. These skills form a continuous improvement loop that compounds your engineering experience over time.
+You have **compound-engineering** installed. This is your operating protocol.
 
-## The Compound Loop
+## What Each Skill Does (and Does NOT Do)
+
+| Skill | Role | Input | Output | Does NOT do |
+|-------|------|-------|--------|-------------|
+| **writing-plans** | Think before coding | User request + memory | `docs/plans/*.md` | Does not record outcomes or persist knowledge |
+| **recording-practices** | Log raw events | Observable engineering event | `docs/{error,good}-experience/entries/*.md` | Does not distill rules or decide what to remember |
+| **managing-memory** | Persist distilled knowledge | A verified, durable insight | One line in `docs/memory/long-term.md` | Does not log raw events or analyze patterns |
+| **running-retros** | Compress entries into rules | Accumulated entries + git history | Retro report + updated memory + summaries | Does not record new events or write plans |
+
+**The key distinction:**
+- `recording-practices` = **raw event log** — high volume, low curation, captures everything notable
+- `managing-memory` = **distilled knowledge** — low volume, high curation, only proven durable insights
+- `running-retros` = **the compression step** — turns raw entries into curated knowledge
+
+## Session Startup Protocol
+
+On every new session, execute these steps **before responding to the user**:
+
+### 1. Load memory
+```
+Read docs/memory/long-term.md
+→ If it exists, you now have 30–50 curated knowledge items
+→ If it doesn't exist, this is a fresh project — create the file on first write
+```
+
+### 2. Scan recent experience
+```
+Read the 3 most recent files in docs/error-experience/entries/
+Read the 2 most recent files in docs/good-experience/entries/
+→ You now know what went wrong and right recently
+```
+
+### 3. Check active plans
+```
+Read docs/plans/ for any file with "Status: in-progress"
+→ If found, you know what work is underway
+```
+
+### 4. Rank and retain
+```
+From steps 1–3, keep the top 8–12 items most relevant to the user's first message
+Discard the rest from active context (you can re-read files later if needed)
+```
+
+### 5. Acknowledge silently
+Do NOT announce that you loaded memory. Just use it. The user should notice better answers, not a loading message.
+
+## Skill Interaction Flow
 
 ```
-writing-plans → Execute → recording-practices → managing-memory → running-retros → (next cycle)
+User request arrives
+    │
+    ├─ Non-trivial? ──→ writing-plans creates plan
+    │                        │
+    │                        ▼
+    ├─ Execute code ◄────────┘
+    │       │
+    │       ├─ Bug fixed? ──────────→ recording-practices logs error entry
+    │       ├─ Pattern found? ──────→ recording-practices logs good entry
+    │       ├─ Decision made? ──────→ managing-memory persists to long-term.md
+    │       └─ Done
+    │
+    └─ 10+ new entries? ──→ running-retros distills rules, updates memory
 ```
-
-Every cycle makes the next one faster. Experience is never lost.
-
-## Available Skills
-
-| Skill | Auto-triggers when... |
-|-------|----------------------|
-| **writing-plans** | Starting non-trivial work (multi-file changes, new features, architecture decisions, refactors) |
-| **recording-practices** | Fixing a bug, discovering a pitfall, finding an effective pattern, completing a tricky task |
-| **managing-memory** | Making a technical decision, discovering a durable pattern, or starting a new session |
-| **running-retros** | 10+ unreviewed experience entries accumulate, a milestone completes, or 7+ days pass since last retro |
-
-## Session Startup Checklist
-
-On every new session, you MUST:
-
-1. **Load memory** — Read `docs/memory/long-term.md` if it exists.
-2. **Scan recent experience** — Read the 3–5 most recent entries in `docs/error-experience/entries/` and `docs/good-experience/entries/`.
-3. **Check active plans** — Look for in-progress plans in `docs/plans/`.
-4. **Rank and retain** — Keep the top 8–12 most relevant items as active context.
-
-Only expand beyond this when a known pattern is triggered or tests fail with a known signature.
 
 ## Directory Structure
 
-These skills use the following directories in the host project:
+Create on first use. Never ask the user for permission.
 
 ```
 docs/
-├── plans/                        # Plan documents (writing-plans)
-├── error-experience/
-│   ├── entries/                  # Individual error records (recording-practices)
-│   └── summary/                  # Consolidated summaries (running-retros)
-├── good-experience/
-│   ├── entries/                  # Individual success records (recording-practices)
-│   └── summary/                  # Consolidated summaries (running-retros)
+├── plans/                        # writing-plans output
+├── error-experience/entries/     # recording-practices output (errors)
+├── good-experience/entries/      # recording-practices output (wins)
+├── error-experience/summary/     # running-retros output
+├── good-experience/summary/      # running-retros output
 └── memory/
-    ├── long-term.md              # Durable knowledge, 30–50 items (managing-memory)
-    └── topics/                   # Deep-dive topic files (managing-memory)
+    ├── long-term.md              # managing-memory output (always loaded)
+    └── topics/                   # managing-memory detail files
 ```
-
-Create these directories automatically when first needed. Do not ask the user.
-
-## Core Principles
-
-- **Record immediately** — Capture experience while context is fresh, not after the fact.
-- **Root cause over symptoms** — "Why" matters more than "what."
-- **Actionable knowledge** — Every memory item should tell you what to DO, not just what IS.
-- **Prune aggressively** — Stale knowledge is worse than no knowledge. Keep memory curated.
-- **Evidence-based rules** — Every rule links back to the experience entries that justify it.

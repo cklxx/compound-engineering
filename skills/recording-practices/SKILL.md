@@ -1,113 +1,166 @@
 ---
 name: recording-practices
-description: "Use when a notable engineering event occurs — bug fix, debugging breakthrough, performance win, effective pattern, anti-pattern discovered. Automatically captures structured experience records."
+description: "Use DURING work when a notable event occurs — bug fixed, non-obvious root cause found, effective technique discovered, pitfall hit. Logs raw experience entries. Does NOT distill rules (that's running-retros) or persist knowledge (that's managing-memory)."
 ---
 
 # Recording Practices
 
-You MUST use this skill whenever a notable engineering event occurs during your work. Do not wait until the end — record while context is fresh.
+**Role in the loop:** LOG raw events as they happen. This skill captures what occurred, why, and what to do about it. It does NOT decide what to remember long-term (that's `managing-memory`) or find patterns across entries (that's `running-retros`).
 
-## When This Activates
+## Precise Trigger Conditions
 
-- You fixed a bug or resolved a technical issue.
-- You discovered an effective pattern or technique.
-- You hit a pitfall, anti-pattern, or counter-intuitive behavior.
-- A debugging session revealed a non-obvious root cause.
-- You completed a task and there is a reusable takeaway.
+Activate this skill when you observe ANY of these **concrete signals**:
+
+| Signal | What to record | Type |
+|--------|---------------|------|
+| You changed code to fix a bug | The bug, its root cause, the fix | error |
+| A test failed for a non-obvious reason | The failure, the actual cause, how you diagnosed it | error |
+| You wasted 10+ minutes on something avoidable | What happened, what would have saved time | error |
+| You tried approach A, it failed, approach B worked | Why A failed, why B worked | error + good |
+| You found a technique that saved significant time | The technique, the context, the impact | good |
+| A code pattern prevented a class of bugs | The pattern, what it prevents, how to apply it | good |
+| You discovered something counter-intuitive | The expectation, the reality, the explanation | error or good |
+
+Do NOT activate when:
+- The fix was trivial and obvious (typo, missing import)
+- The information is already in an existing entry (check first)
+- You're still in the middle of debugging (wait until resolved)
 
 ## Workflow
 
-### Step 1 — Classify
+### Step 1 — Classify: error or good?
 
-Determine the experience type:
-- **error-experience** — Bugs, pitfalls, anti-patterns, debugging lessons, things that went wrong.
-- **good-experience** — Best practices, successful patterns, effective techniques, things that went right.
+Ask yourself one question: **Did something go wrong, or did something go right?**
 
-### Step 2 — Write the Entry
+- Wrong → `docs/error-experience/entries/YYYY-MM-DD-<slug>.md`
+- Right → `docs/good-experience/entries/YYYY-MM-DD-<slug>.md`
 
-**For error-experience** — Create `docs/error-experience/entries/YYYY-MM-DD-<slug>.md`:
+If both (tried A, failed; tried B, succeeded), write TWO entries.
+
+### Step 2 — Write the entry
+
+**Error entry template:**
 
 ```markdown
-# YYYY-MM-DD — <Short descriptive title>
+# YYYY-MM-DD — <verb phrase describing what went wrong>
 
 ## What Happened
-- Symptoms, error messages, unexpected behavior.
-- Where: file paths, functions, modules involved.
-- During: what activity (coding, testing, deploying, reviewing).
+<2–3 sentences. What were you doing? What went wrong? What did you see?>
 
 ## Root Cause
-- The actual underlying cause.
-- Contributing factors (environment, assumptions, knowledge gaps).
+<1–2 sentences. The ACTUAL underlying reason, not the symptom.>
 
 ## Impact
-- Severity: P0 (production down) / P1 (major bug) / P2 (moderate) / P3 (minor)
-- Blast radius: what was affected.
+- Severity: P0 / P1 / P2 / P3
+- Time lost: <how long this cost you>
 
-## Resolution
-- What fixed it (specific steps).
+## Fix
+<The specific code change, config change, or command that resolved it.>
 
 ## Prevention Rule
-- What check or practice would have caught this earlier?
-- Suggested: lint rule / test / code pattern / process change.
+<One sentence: what check, test, or practice would catch this BEFORE it happens again?>
 
 ## Tags
-`tag1` `tag2` `tag3`
+`<domain>` `<language>` `<category>`
 ```
 
-**For good-experience** — Create `docs/good-experience/entries/YYYY-MM-DD-<slug>.md`:
+**Good entry template:**
 
 ```markdown
-# YYYY-MM-DD — <Short descriptive title>
+# YYYY-MM-DD — <verb phrase describing what worked>
 
-## Practice
-- What was done (technique, pattern, approach).
-- Context: what problem was being solved.
+## What Was Done
+<2–3 sentences. What technique, pattern, or approach was used? In what context?>
 
 ## Why It Worked
-- Key factors that made this effective.
-- Comparison: what would have happened without this practice.
+<1–2 sentences. The key factor that made this effective.>
 
 ## Impact
-- Measurable improvement (time saved, bugs prevented, clarity gained).
+<What improved — time saved, bugs prevented, clarity gained. Be specific.>
 
 ## How to Reproduce
-- Step-by-step guide to apply this in similar situations.
-- Prerequisites and conditions where it applies.
+<Step-by-step: how to apply this technique in a similar situation.>
 
-## When NOT to Use
-- Conditions where this practice backfires.
+## Conditions
+- Works when: <prerequisites>
+- Doesn't work when: <counter-conditions>
 
 ## Tags
-`tag1` `tag2` `tag3`
+`<domain>` `<language>` `<category>`
 ```
 
-### Step 3 — Cross-reference
+### Concrete Examples
 
-- Check if similar entries already exist. Reference them rather than duplicate.
-- If the lesson is high-impact or recurring, trigger the `managing-memory` skill to persist it in long-term memory.
-
-### Step 4 — Periodic Summarization
-
-When entries in a category exceed 10 unsummarized items, automatically generate a summary at `docs/{error,good}-experience/summary/YYYY-MM-<topic>.md`:
+**Error entry — real example:**
 
 ```markdown
-# Summary: <Topic> — YYYY-MM
+# 2026-02-09 — nil map panic in config loader
 
-## Patterns Observed
-- Pattern 1: <description> (entries: file1, file2, ...)
-- Pattern 2: <description> (entries: file3, file4, ...)
+## What Happened
+Added a new config field. Tests passed. Production crashed on startup with
+`assignment to entry in nil map` at config/loader.go:47.
 
-## Consolidated Rules
-1. Rule from pattern 1.
-2. Rule from pattern 2.
+## Root Cause
+The `Overrides` map was declared but never initialized. Tests used a
+factory function that initializes it, but the production code path
+uses struct literal without the factory.
 
-## Open Questions
-- Items needing more data to confirm.
+## Impact
+- Severity: P1 (app won't start)
+- Time lost: 45 minutes (debugging + hotfix + deploy)
+
+## Fix
+Changed `Overrides map[string]string` to `Overrides map[string]string` with
+init in `NewConfig()` and added a nil check in `LoadConfig()`.
+
+## Prevention Rule
+Always initialize maps in struct constructors. Add a linter check for
+uninitialized map fields in exported structs.
+
+## Tags
+`go` `nil-safety` `config`
 ```
 
-## Key Principles
+**Good entry — real example:**
 
-- **Immediate over deferred** — Record while context is fresh, not from memory later.
-- **Root cause over symptoms** — "Why" is always more valuable than "what."
-- **Actionable** — Every entry must include a prevention rule or reproduction guide.
-- **Deduplicate** — Check existing entries before creating new ones. Update rather than repeat.
+```markdown
+# 2026-02-09 — table-driven tests caught 4 edge cases in parser
+
+## What Was Done
+Rewrote the CSV parser tests from 12 individual test functions to one
+table-driven test with 30 cases covering: empty input, single column,
+quoted fields, escaped quotes, Unicode, trailing newlines, CRLF vs LF.
+
+## Why It Worked
+Table format made it trivial to add cases — just one more row. The visual
+alignment made missing coverage obvious (no Unicode case? add one).
+
+## Impact
+Caught 4 bugs that individual tests missed: Unicode BOM handling, empty
+last field, CR-only line endings, and quoted field with embedded newline.
+
+## How to Reproduce
+1. List all inputs as `{name, input, expected}` rows in a test table
+2. Scan the table visually for missing categories (empty, boundary, Unicode, error)
+3. Run with `-v` to see which cases pass/fail
+
+## Conditions
+- Works when: function has many input variants with predictable outputs
+- Doesn't work when: tests need complex setup/teardown per case
+
+## Tags
+`go` `testing` `table-driven`
+```
+
+### Step 3 — Check for duplicates
+
+Before writing, scan existing entries in the same directory:
+- If a similar entry exists → update it instead of creating a new one
+- If the same root cause appeared before → reference the old entry and note recurrence
+
+### Step 4 — Handoff
+
+After writing the entry:
+- If the lesson is **high-impact AND durable** (you're confident it will matter in 2+ weeks) → trigger `managing-memory` to persist a one-liner to `long-term.md`
+- If there are now **10+ entries** without a summary → note that `running-retros` should be triggered
+- Otherwise, just move on. Not every entry needs to be memorialized.

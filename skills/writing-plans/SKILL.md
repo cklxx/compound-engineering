@@ -1,28 +1,50 @@
 ---
 name: writing-plans
-description: "Use when starting non-trivial work — new features, refactors, architecture changes, multi-file modifications. Generates a structured plan before any code is written."
+description: "Use BEFORE starting non-trivial work. Creates a structured plan with task breakdown, technical design, and risks. A task is non-trivial if it touches 3+ files, involves a design choice, or will take more than 30 minutes."
 ---
 
 # Writing Plans
 
-You MUST use this skill before starting any non-trivial work. A task is non-trivial if it touches 3+ files, takes more than 30 minutes, or involves design decisions.
+**Role in the loop:** THINK before coding. This skill produces the plan. It does NOT record outcomes, persist knowledge, or review past work — those are separate skills.
 
-## When This Activates
+## Precise Trigger Conditions
 
-- The user describes a feature, refactor, or architecture change.
-- The work involves multiple files or modules.
-- There are multiple valid approaches and a choice must be made.
-- The scope is unclear and needs decomposition.
+Activate this skill when ANY of these are true:
+
+| Signal | Example |
+|--------|---------|
+| User describes a new feature | "Add OAuth login" |
+| Work will touch 3+ files | Refactoring a module that spans multiple packages |
+| Multiple valid approaches exist | "Should we use Redis or in-memory cache?" |
+| Scope is unclear | "Improve the API performance" |
+| User explicitly asks for a plan | "Plan out the migration" |
+
+Do NOT activate when:
+- The task is a single-file fix with an obvious solution
+- The user says "just do it" or "quick fix"
+- You're in the middle of executing an existing plan
 
 ## Workflow
 
-### Step 1 — Understand Before Planning
+### Step 1 — Load context (30 seconds, not 5 minutes)
 
-- Read relevant code, docs, and `docs/memory/long-term.md` for project context.
-- Check `docs/plans/` for related past plans — extract lessons, avoid repeated mistakes.
-- If requirements are ambiguous, ask the user to clarify. Batch questions into one round.
+```
+1. Read docs/memory/long-term.md → extract items relevant to this task
+2. Grep docs/plans/ for related past plans → extract lessons and failures
+3. Read the specific files the user mentioned or that are obviously relevant
+```
 
-### Step 2 — Write the Plan
+Do NOT read the entire codebase. Read what's needed for this plan.
+
+If requirements are ambiguous, ask the user. Batch all questions into ONE message:
+```
+Before I plan this, I need to clarify:
+1. Should we support X or only Y?
+2. Is Z a hard requirement or nice-to-have?
+3. What's the target deadline?
+```
+
+### Step 2 — Write the plan
 
 Create `docs/plans/YYYY-MM-DD-<slug>.md`:
 
@@ -30,69 +52,91 @@ Create `docs/plans/YYYY-MM-DD-<slug>.md`:
 # Plan: <Title>
 
 > Created: YYYY-MM-DD
-> Status: draft | in-progress | completed | abandoned
-> Trigger: <what prompted this plan>
+> Status: draft
+> Trigger: <the user request that prompted this>
 
-## 1. Goal & Success Criteria
-- **Goal**: One sentence — what we are achieving.
-- **Success criteria**: Measurable outcomes that define "done."
-- **Non-goals**: Explicitly out of scope.
+## Goal & Success Criteria
+- **Goal**: <one sentence>
+- **Done when**: <measurable condition>
+- **Non-goals**: <what we're NOT doing>
 
-## 2. Current State
-- What exists today — key files, modules, dependencies.
-- What problem or opportunity drives this work.
-- Related past decisions (link to existing records if any).
+## Current State
+- <relevant files/modules and their current behavior>
+- <the problem or opportunity driving this work>
 
-## 3. Task Breakdown
+## Task Breakdown
 
-Break into ordered, independently deliverable steps.
-Each task should be completable in one focused session (2–5 min ideal, 30 min max).
+| # | Task | Files | Size | Depends On |
+|---|------|-------|------|------------|
+| 1 | ... | ... | S/M/L | — |
+| 2 | ... | ... | S/M/L | T1 |
 
-| # | Task | Files/Modules | Size | Depends On |
-|---|------|---------------|------|------------|
-| 1 | ...  | ...           | S/M/L| —          |
-| 2 | ...  | ...           | S/M/L| T1         |
+S = under 30 min. M = 30 min–2 hr. L = over 2 hr (must split).
 
-Size guide: S < 30 min, M = 30 min–2 hr, L > 2 hr (split further).
+## Technical Design
+- **Approach**: <3–5 sentences>
+- **Alternatives rejected**: <what and why>
+- **Key decisions**: <decision — rationale>
 
-## 4. Technical Design
-- **Chosen approach**: 3–5 sentences describing the solution.
-- **Alternatives considered**: What else was evaluated and why it was rejected.
-- **Key decisions**: Architectural/technical decisions with rationale.
-
-## 5. Risks & Mitigation
+## Risks
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| ...  | H/M/L     | H/M/L  | ...        |
+| ... | H/M/L | H/M/L | ... |
 
-## 6. Verification
-- How each task will be tested.
-- Rollback plan if things go wrong.
-
-## 7. Milestones
-- [ ] M1: <description>
-- [ ] M2: <description>
-- [ ] Delivery complete
+## Verification
+- <how to test each task>
+- <rollback plan>
 ```
 
-### Step 3 — Validate the Plan
+### Concrete Example
 
-Before executing:
-- Every task has clear boundaries and acceptance criteria.
-- Dependencies form a valid DAG (no cycles).
-- Risks are realistic and mitigations are actionable.
-- Present the plan to the user and wait for approval.
+A real plan for "Add rate limiting to the API":
 
-### Step 4 — Execute and Maintain
+```markdown
+# Plan: API Rate Limiting
 
-- Update plan status as work progresses.
-- When reality diverges from the plan, update the plan first.
-- On completion, record key decisions via the `managing-memory` skill.
+> Created: 2026-02-09
+> Status: draft
+> Trigger: User requested rate limiting to prevent abuse
 
-## Key Principles
+## Goal & Success Criteria
+- **Goal**: Add per-IP rate limiting to all public API endpoints.
+- **Done when**: Requests exceeding 100/min per IP get HTTP 429, with tests passing.
+- **Non-goals**: Per-user rate limiting, admin dashboard for limits.
 
-- **Small tasks** — If a task can't be described in one sentence, split it.
-- **Front-load risk** — Put uncertain work early so surprises come cheap.
-- **Link, don't repeat** — Reference existing docs instead of duplicating.
-- **Plans are living documents** — Update when reality changes, don't abandon silently.
+## Task Breakdown
+
+| # | Task | Files | Size | Depends On |
+|---|------|-------|------|------------|
+| 1 | Add rate limiter middleware | internal/middleware/ratelimit.go | S | — |
+| 2 | Write tests for rate limiter | internal/middleware/ratelimit_test.go | S | T1 |
+| 3 | Wire middleware into router | cmd/server/main.go | S | T1 |
+| 4 | Add config for rate limit values | config/config.go, config.yaml | S | T1 |
+
+## Technical Design
+- **Approach**: Token bucket algorithm using golang.org/x/time/rate. Per-IP tracking with sync.Map, entries expire after 10 min idle. Middleware returns 429 with Retry-After header.
+- **Alternatives rejected**: Redis-based (overkill for single-instance), fixed window (bursty edge cases).
+- **Key decisions**: Token bucket over sliding window — simpler, well-tested stdlib implementation.
+
+## Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| sync.Map memory growth under attack | M | M | Add TTL-based eviction goroutine |
+| Rate limit too aggressive for legitimate users | L | H | Make limits configurable via config.yaml |
+```
+
+### Step 3 — Get approval, then execute
+
+- Present the plan to the user.
+- Wait for approval before writing code.
+- Update `Status: draft` → `Status: in-progress` when starting.
+- Update `Status: in-progress` → `Status: completed` when done.
+- If reality diverges from the plan, update the plan file FIRST.
+
+### Step 4 — Handoff to other skills
+
+When the plan completes:
+- If key decisions were made → trigger `managing-memory` to persist them
+- If bugs were hit during execution → `recording-practices` should have already logged them
