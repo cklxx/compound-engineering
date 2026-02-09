@@ -1,23 +1,44 @@
 #!/usr/bin/env bash
 # compound-engineering uninstaller
+# Works for both Claude Code and Codex.
+#
+# Usage:
+#   curl -fsSL https://raw.githubusercontent.com/cklxx/compound-engineering/main/uninstall.sh | bash
+#   # or
+#   bash ~/.compound-engineering/uninstall.sh
 
 set -euo pipefail
 
 CE_HOME="${CE_HOME:-$HOME/.compound-engineering}"
-RED='\033[0;31m'
+GREEN='\033[0;32m'
+DIM='\033[2m'
 NC='\033[0m'
 
+step() { echo -e "  → $1"; }
+
 echo ""
-echo "  Removing compound-engineering..."
+echo "  compound-engineering uninstaller"
 echo ""
 
-# Remove Claude Code links
-rm -f "$HOME/.claude/skills/compound-engineering"
-for cmd in "$CE_HOME"/commands/*.md 2>/dev/null; do
-  [ -f "$cmd" ] && rm -f "$HOME/.claude/commands/$(basename "$cmd")"
+# ── 1. Remove Claude Code skills symlink ────────────────────────────
+
+if [ -L "$HOME/.claude/skills/compound-engineering" ]; then
+  rm -f "$HOME/.claude/skills/compound-engineering"
+  step "Removed Claude Code skills symlink"
+fi
+
+# ── 2. Remove Claude Code slash commands ────────────────────────────
+
+for cmd in write-plan.md record.md retro.md; do
+  target="$HOME/.claude/commands/$cmd"
+  if [ -L "$target" ]; then
+    rm -f "$target"
+  fi
 done
+step "Removed slash commands"
 
-# Remove hook from hooks.json
+# ── 3. Remove SessionStart hook from hooks.json ─────────────────────
+
 HOOKS_FILE="$HOME/.claude/hooks.json"
 if [ -f "$HOOKS_FILE" ] && grep -q "compound-engineering" "$HOOKS_FILE" 2>/dev/null; then
   python3 -c "
@@ -29,16 +50,26 @@ with open('$HOOKS_FILE', 'w') as f:
     json.dump(data, f, indent=2)
     f.write('\n')
 "
-  echo "  Removed hook from ${HOOKS_FILE}"
+  step "Removed SessionStart hook from ${HOOKS_FILE}"
 fi
 
-# Remove Codex link
-rm -f "$HOME/.agents/skills/compound-engineering"
+# ── 4. Remove Codex skills symlink ──────────────────────────────────
 
-# Remove the repo itself
-rm -rf "$CE_HOME"
+if [ -L "$HOME/.agents/skills/compound-engineering" ]; then
+  rm -f "$HOME/.agents/skills/compound-engineering"
+  step "Removed Codex skills symlink"
+fi
+
+# ── 5. Remove the cloned repo ───────────────────────────────────────
+
+if [ -d "$CE_HOME" ]; then
+  rm -rf "$CE_HOME"
+  step "Removed ${CE_HOME}"
+fi
 
 echo ""
-echo -e "  ${RED}Removed.${NC} compound-engineering has been uninstalled."
-echo "  Note: docs/ directories in your projects are untouched (your data is safe)."
+echo -e "  ${GREEN}Done.${NC} compound-engineering has been uninstalled."
+echo ""
+echo "  Your project data is safe — docs/ directories in your projects are untouched."
+echo "  To reinstall: curl -fsSL https://raw.githubusercontent.com/cklxx/compound-engineering/main/install.sh | bash"
 echo ""

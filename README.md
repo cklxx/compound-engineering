@@ -35,8 +35,22 @@ That's it. The script:
 
 Both Claude Code and Codex will have full access to all skills from the next session.
 
+### One-Line Uninstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cklxx/compound-engineering/main/uninstall.sh | bash
+```
+
+Removes all symlinks, hooks, and the cloned repo. Your project data (`docs/` directories) is never touched.
+
+### Update
+
+```bash
+cd ~/.compound-engineering && git pull
+```
+
 <details>
-<summary><b>Manual install / advanced options</b></summary>
+<summary><b>Manual install / platform-specific options</b></summary>
 
 **Claude Code only:**
 ```bash
@@ -51,12 +65,7 @@ mkdir -p ~/.agents/skills
 ln -s ~/.compound-engineering/skills ~/.agents/skills/compound-engineering
 ```
 
-**Update:**
-```bash
-cd ~/.compound-engineering && git pull
-```
-
-**Uninstall:**
+**Local uninstall (if already installed):**
 ```bash
 bash ~/.compound-engineering/uninstall.sh
 ```
