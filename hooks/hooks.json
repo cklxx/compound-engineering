@@ -1,0 +1,9 @@
+{
+  "hooks": [
+    {
+      "type": "UserPromptSubmit",
+      "command": "bash hooks/session-start.sh",
+      "events": ["startup", "resume", "clear", "compact"]
+    }
+  ]
+}

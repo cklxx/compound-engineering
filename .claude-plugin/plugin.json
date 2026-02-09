@@ -1,0 +1,8 @@
+{
+  "name": "compound-engineering",
+  "version": "1.0.0",
+  "description": "A skills framework that compounds engineering experience — planning, recording practices, managing memory, and running retrospectives.",
+  "skills": "skills",
+  "hooks": "hooks/hooks.json",
+  "commands": "commands"
+}

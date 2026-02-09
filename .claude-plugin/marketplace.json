@@ -1,0 +1,11 @@
+{
+  "name": "compound-engineering-marketplace",
+  "version": "1.0.0",
+  "description": "Marketplace distribution for compound-engineering skills plugin",
+  "plugins": [
+    {
+      "name": "compound-engineering",
+      "path": "."
+    }
+  ]
+}
