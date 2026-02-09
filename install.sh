@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # compound-engineering installer
-# Works for both Claude Code and Codex. Run once in any project directory.
+# Works for both Claude Code and Codex on macOS, Linux, and WSL.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/cklxx/compound-engineering/main/install.sh | bash
@@ -11,53 +11,74 @@ set -euo pipefail
 
 REPO="https://github.com/cklxx/compound-engineering.git"
 CE_HOME="${CE_HOME:-$HOME/.compound-engineering}"
-BLUE='\033[0;34m'
-GREEN='\033[0;32m'
-DIM='\033[2m'
-NC='\033[0m'
 
-step() { echo -e "${BLUE}→${NC} $1"; }
-done() { echo -e "${GREEN}✓${NC} $1"; }
+# ── Colors (safe for non-tty) ───────────────────────────────────────
+
+if [ -t 1 ]; then
+  BLUE='\033[0;34m'; GREEN='\033[0;32m'; NC='\033[0m'
+else
+  BLUE=''; GREEN=''; NC=''
+fi
+
+info()  { echo -e "  ${BLUE}->${NC} $1"; }
+ok()    { echo -e "  ${GREEN}ok${NC} $1"; }
+
+# ── Detect platform ─────────────────────────────────────────────────
+
+OS="$(uname -s)"
+case "$OS" in
+  Linux*)   PLATFORM="linux" ;;
+  Darwin*)  PLATFORM="macos" ;;
+  MINGW*|MSYS*|CYGWIN*) PLATFORM="windows" ;;
+  *)        PLATFORM="unknown" ;;
+esac
 
 echo ""
-echo "  compound-engineering installer"
-echo "  Automatic learning loop for AI coding agents"
+echo "  compound-engineering installer (${PLATFORM})"
 echo ""
 
 # ── 1. Clone or update the skills repo ──────────────────────────────
 
-step "Downloading skills to ${CE_HOME}"
+info "Downloading skills to ${CE_HOME}"
 if [ -d "$CE_HOME/.git" ]; then
-  git -C "$CE_HOME" pull --quiet
-  done "Updated existing installation"
+  git -C "$CE_HOME" pull --quiet 2>/dev/null || git -C "$CE_HOME" pull
+  ok "Updated existing installation"
 else
-  git clone --quiet "$REPO" "$CE_HOME"
-  done "Cloned to ${CE_HOME}"
+  git clone --quiet "$REPO" "$CE_HOME" 2>/dev/null || git clone "$REPO" "$CE_HOME"
+  ok "Cloned to ${CE_HOME}"
 fi
 
 # ── 2. Claude Code setup ────────────────────────────────────────────
 
-step "Setting up Claude Code"
+info "Setting up Claude Code"
 
-# 2a. Personal skills (global, all projects)
+# 2a. Skills symlink
 CLAUDE_SKILLS="$HOME/.claude/skills"
 mkdir -p "$CLAUDE_SKILLS"
-ln -sfn "$CE_HOME/skills" "$CLAUDE_SKILLS/compound-engineering"
-done "Skills linked → ${CLAUDE_SKILLS}/compound-engineering"
+if [ "$PLATFORM" = "windows" ]; then
+  # Windows: use junction or copy
+  if command -v cmd.exe &>/dev/null; then
+    cmd.exe /c "mklink /J \"$(cygpath -w "$CLAUDE_SKILLS/compound-engineering")\" \"$(cygpath -w "$CE_HOME/skills")\"" 2>/dev/null || \
+      cp -r "$CE_HOME/skills" "$CLAUDE_SKILLS/compound-engineering"
+  else
+    cp -r "$CE_HOME/skills" "$CLAUDE_SKILLS/compound-engineering"
+  fi
+else
+  ln -sfn "$CE_HOME/skills" "$CLAUDE_SKILLS/compound-engineering"
+fi
+ok "Skills -> ${CLAUDE_SKILLS}/compound-engineering"
 
-# 2b. Hooks (global)
-CLAUDE_HOOKS_DIR="$HOME/.claude"
-HOOKS_FILE="$CLAUDE_HOOKS_DIR/hooks.json"
+# 2b. Hooks
+HOOKS_FILE="$HOME/.claude/hooks.json"
 CE_HOOK_CMD="bash $CE_HOME/hooks/session-start.sh"
 
 if [ -f "$HOOKS_FILE" ]; then
-  # Check if our hook already exists
   if grep -q "compound-engineering" "$HOOKS_FILE" 2>/dev/null; then
-    done "Hook already registered in ${HOOKS_FILE}"
+    ok "Hook already registered"
   else
-    # Append our hook into existing hooks array
+    # Append hook using python3 (available on macOS/Linux/WSL)
     python3 -c "
-import json, sys
+import json
 with open('$HOOKS_FILE') as f:
     data = json.load(f)
 hooks = data.get('hooks', [])
@@ -70,50 +91,62 @@ data['hooks'] = hooks
 with open('$HOOKS_FILE', 'w') as f:
     json.dump(data, f, indent=2)
     f.write('\n')
-"
-    done "Hook appended to ${HOOKS_FILE}"
+" 2>/dev/null && ok "Hook appended to hooks.json" || {
+      echo "  [skip] Could not update hooks.json (python3 not found). Add manually."
+    }
   fi
 else
-  cat > "$HOOKS_FILE" <<HOOKEOF
-{
-  "hooks": [
-    {
-      "type": "UserPromptSubmit",
-      "command": "$CE_HOOK_CMD",
-      "events": ["startup", "resume", "clear", "compact"]
-    }
-  ]
-}
-HOOKEOF
-  done "Hook created at ${HOOKS_FILE}"
+  mkdir -p "$(dirname "$HOOKS_FILE")"
+  printf '%s\n' '{' \
+    '  "hooks": [' \
+    '    {' \
+    "      \"type\": \"UserPromptSubmit\"," \
+    "      \"command\": \"$CE_HOOK_CMD\"," \
+    '      "events": ["startup", "resume", "clear", "compact"]' \
+    '    }' \
+    '  ]' \
+    '}' > "$HOOKS_FILE"
+  ok "Hook created at hooks.json"
 fi
 
-# 2c. Commands (optional slash commands)
+# 2c. Slash commands
 CLAUDE_COMMANDS="$HOME/.claude/commands"
 mkdir -p "$CLAUDE_COMMANDS"
 for cmd in "$CE_HOME"/commands/*.md; do
-  [ -f "$cmd" ] && ln -sfn "$cmd" "$CLAUDE_COMMANDS/$(basename "$cmd")"
+  [ -f "$cmd" ] || continue
+  if [ "$PLATFORM" = "windows" ]; then
+    cp "$cmd" "$CLAUDE_COMMANDS/$(basename "$cmd")"
+  else
+    ln -sfn "$cmd" "$CLAUDE_COMMANDS/$(basename "$cmd")"
+  fi
 done
-done "Slash commands linked → ${CLAUDE_COMMANDS}/"
+ok "Slash commands -> ${CLAUDE_COMMANDS}/"
 
 # ── 3. Codex setup ──────────────────────────────────────────────────
 
-step "Setting up Codex"
+info "Setting up Codex"
 CODEX_SKILLS="$HOME/.agents/skills"
 mkdir -p "$CODEX_SKILLS"
-ln -sfn "$CE_HOME/skills" "$CODEX_SKILLS/compound-engineering"
-done "Skills linked → ${CODEX_SKILLS}/compound-engineering"
+if [ "$PLATFORM" = "windows" ]; then
+  if command -v cmd.exe &>/dev/null; then
+    cmd.exe /c "mklink /J \"$(cygpath -w "$CODEX_SKILLS/compound-engineering")\" \"$(cygpath -w "$CE_HOME/skills")\"" 2>/dev/null || \
+      cp -r "$CE_HOME/skills" "$CODEX_SKILLS/compound-engineering"
+  else
+    cp -r "$CE_HOME/skills" "$CODEX_SKILLS/compound-engineering"
+  fi
+else
+  ln -sfn "$CE_HOME/skills" "$CODEX_SKILLS/compound-engineering"
+fi
+ok "Skills -> ${CODEX_SKILLS}/compound-engineering"
 
-# ── 4. Done ─────────────────────────────────────────────────────────
+# ── 4. Summary ──────────────────────────────────────────────────────
 
 echo ""
-echo -e "${GREEN}Done.${NC} compound-engineering is installed for both Claude Code and Codex."
+echo -e "  ${GREEN}Installed.${NC} compound-engineering is ready for Claude Code and Codex."
 echo ""
-echo "  What happens next:"
-echo "    1. Start a Claude Code or Codex session in any project"
-echo "    2. The agent automatically loads the compound-engineering skills"
-echo "    3. It will plan, record, remember, and review — with zero manual effort"
+echo "  Next steps:"
+echo "    Start any Claude Code or Codex session — skills activate automatically."
 echo ""
-echo "  To update:  cd ${CE_HOME} && git pull"
-echo "  To remove:  bash ${CE_HOME}/uninstall.sh"
+echo "  Update:     cd ${CE_HOME} && git pull"
+echo "  Uninstall:  curl -fsSL https://raw.githubusercontent.com/cklxx/compound-engineering/main/uninstall.sh | bash"
 echo ""
